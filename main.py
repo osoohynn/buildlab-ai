@@ -11,8 +11,9 @@ app = Flask(__name__)
 PROCESSED_DIR = os.path.join(app.root_path, 'static', 'processed')
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
-# YOLOv5 모델 로드 (yolov5s, yolov5m 등 선택 가능)
-model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+# 두 모델 로드: 커스텀 모델과 기본 COCO 모델
+custom_model = torch.hub.load('ultralytics/yolov5', 'custom', path='./yolov5/runs/train/exp6/weights/best.pt')
+coco_model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 
 def file_to_image(file_storage):
     """업로드된 파일을 OpenCV 이미지로 변환"""
@@ -29,9 +30,13 @@ def save_image_to_file(img, prefix="processed"):
     file_url = url_for('static', filename=f"processed/{filename}", _external=True)
     return file_path, file_url
 
-def detect_objects(img):
-    """YOLOv5로 객체 감지"""
-    results = model(img)
+def detect_objects(img, target_object):
+    """타겟 객체가 'strawberry'이면 커스텀 모델, 아니면 COCO 모델 사용하여 객체 감지"""
+    if target_object.lower() == 'strawberry':
+        selected_model = custom_model
+    else:
+        selected_model = coco_model
+    results = selected_model(img)
     df = results.pandas().xyxy[0]  # Pandas DataFrame으로 결과 받기
     detections = df.to_dict(orient="records")
     return detections
@@ -46,7 +51,7 @@ def detect():
     if not target_object:
         return jsonify({"error": "Missing object parameter"}), 400
 
-    detections = detect_objects(img)
+    detections = detect_objects(img, target_object)
     filtered = [d for d in detections if target_object.lower() in d['name'].lower()]
 
     _, file_url = save_image_to_file(img, prefix="detect")
@@ -66,7 +71,7 @@ def highlight():
     if not target_object or not highlight_method:
         return jsonify({"error": "Missing parameters"}), 400
 
-    detections = detect_objects(img)
+    detections = detect_objects(img, target_object)
     filtered = [d for d in detections if target_object.lower() in d['name'].lower()]
 
     if highlight_method == "파란 테두리":
