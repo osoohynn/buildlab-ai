@@ -12,8 +12,10 @@ PROCESSED_DIR = os.path.join(app.root_path, 'static', 'processed')
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 # 두 모델 로드: 커스텀 모델과 기본 COCO 모델
-custom_model = torch.hub.load('ultralytics/yolov5', 'custom', path='./yolov5/runs/train/exp6/weights/best.pt')
+custom_model = torch.hub.load('ultralytics/yolov5', 'custom', path='./yolov5/runs/train/exp10/weights/best.pt')
 coco_model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+
+custom_model.conf = 0.4
 
 def file_to_image(file_storage):
     """업로드된 파일을 OpenCV 이미지로 변환"""
@@ -88,3 +90,6 @@ if __name__ == '__main__':
 
 from asgiref.wsgi import WsgiToAsgi
 asgi_app = WsgiToAsgi(app)
+
+# 실행 명령어
+# python -m uvicorn main:asgi_app --reload
