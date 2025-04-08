@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 from datetime import datetime
 import torch
+import concurrent.futures
+
 
 app = Flask(__name__)
 
@@ -12,10 +14,10 @@ PROCESSED_DIR = os.path.join(app.root_path, 'static', 'processed')
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 # 두 모델 로드: 커스텀 모델과 기본 COCO 모델
-custom_model = torch.hub.load('ultralytics/yolov5', 'custom', path='./yolov5/runs/train/exp10/weights/best.pt')
+custom_model = torch.hub.load('ultralytics/yolov5', 'custom', path='./yolov5/runs/train/exp11/weights/best.pt')
 coco_model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 
-custom_model.conf = 0.4
+# custom_model.conf = 0.2
 
 def file_to_image(file_storage):
     """업로드된 파일을 OpenCV 이미지로 변환"""
@@ -54,6 +56,12 @@ def detect():
         return jsonify({"error": "Missing object parameter"}), 400
 
     detections = detect_objects(img, target_object)
+    # filtered = [d for d in detections if target_object.lower() in d['name'].lower()]
+    # ****: 타겟이 strawberry인 경우, 모든 결과의 클래스 값을 0으로 변경
+    if target_object.lower() == 'strawberry':
+        for det in detections:
+            det['class'] = 0  # 클래스 값을 0으로 설정
+            det['name'] = 'strawberry'  # 이름도 strawberry로 확실하게 지정
     filtered = [d for d in detections if target_object.lower() in d['name'].lower()]
 
     _, file_url = save_image_to_file(img, prefix="detect")
@@ -74,6 +82,11 @@ def highlight():
         return jsonify({"error": "Missing parameters"}), 400
 
     detections = detect_objects(img, target_object)
+    # ****: 타겟이 strawberry인 경우, 모든 결과의 클래스 값을 0으로 변경
+    if target_object.lower() == 'strawberry':
+        for det in detections:
+            det['class'] = 0
+            det['name'] = 'strawberry'
     filtered = [d for d in detections if target_object.lower() in d['name'].lower()]
 
     if highlight_method == "파란 테두리":
@@ -90,6 +103,7 @@ if __name__ == '__main__':
 
 from asgiref.wsgi import WsgiToAsgi
 asgi_app = WsgiToAsgi(app)
+
 
 # 실행 명령어
 # python -m uvicorn main:asgi_app --reload
